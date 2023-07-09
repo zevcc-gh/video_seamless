@@ -1,21 +1,92 @@
 <!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <title>Video Player</title>
-</head>
-
+<html>
 <body>
-    <video id="video" style="display:none" width="640" height="360" controls>
-        <source type="video/mp4">
-        Your browser does not support playing this video.
-    </video>
-    <canvas id="canvas" width="512" height="480"></canvas>
-    <button id="connectWS">Connect WS</button>
+    <canvas id="canvas" width="640" height="480"></canvas>
+    <button id="start">Start</button>
     <button id="pause">Pause</button>
     <button id="resume">Resume</button>
-    <script src="/static/js/script.js"></script>
-</body>
+    <script>
+        var canvas = document.getElementById('canvas');
+        var ctx = canvas.getContext('2d');
+        var video = document.createElement('video');
+        video.muted = true;
+        var sourceBuffer;
+        var mediaSource; // Declare mediaSource in global scope
+        var idleVideoLink;
+        var websocket;
+        var videoPlaying = false;
 
+        var drawVideo = function () {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            requestAnimationFrame(drawVideo);
+        };
+
+        function loadVideo(videoUrl) {
+            mediaSource = new MediaSource();
+            video.src = URL.createObjectURL(mediaSource);
+            mediaSource.addEventListener('sourceopen', function () {
+                sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp8, vorbis"');
+                fetch(videoUrl).then(response => {
+                    return response.arrayBuffer();
+                }).then(data => {
+                    sourceBuffer.appendBuffer(data);
+                    sourceBuffer.addEventListener('updateend', function () {
+                        if (!sourceBuffer.updating && mediaSource.readyState === 'open') {
+                            mediaSource.endOfStream();
+                            drawVideo();
+                            video.play().catch(error => {
+                                console.log('Autoplay was prevented. Enable autoplay in your browser settings to start the video automatically.');
+                            });
+                        }
+                    });
+                });
+            });
+        }
+
+        document.getElementById('start').addEventListener('click', function () {
+            // Connect to WebSocket server
+            websocket = new WebSocket('ws://localhost:8000/ws/123');
+            websocket.onmessage = function(event) {
+                var data = JSON.parse(event.data);
+                var videoLink = data.video_link;
+                loadVideo(videoLink);
+                videoPlaying = true;
+            };
+
+            // Fetch idle video from the backend
+            fetch('http://localhost:8000/idle', { credentials: "include" })
+            .then(function (response) {
+                return response.json();
+            })
+            .then(function (data) {
+                idleVideoLink = data.video_link;
+                loadVideo(idleVideoLink);
+            })
+            .catch(function (error) {
+                console.log("Error fetching idle video:", error);
+            });
+        });
+
+        video.addEventListener('ended', function () {
+            if(videoPlaying){
+                videoPlaying = false;
+                loadVideo(idleVideoLink); // Loop the idle video again
+            }
+        });
+
+        document.getElementById('pause').addEventListener('click', function () {
+            video.pause();
+        });
+
+        document.getElementById('resume').addEventListener('click', function () {
+            if (mediaSource.readyState !== 'closed') {
+                video.play().catch(error => {
+                    console.log('Play was prevented. Enable autoplay in your browser settings to resume the video.');
+                });
+            } else {
+                loadVideo(idleVideoLink);
+            }
+        });
+    </script>
+</body>
 </html>

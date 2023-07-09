@@ -28,7 +28,7 @@ templates = Jinja2Templates(directory="templates")
 
 
 # Mock video queue
-idle_video_queue = ["https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4"]
+idle_video_queue = ["https://is2.4chan.org/wsg/1688305646056852.webm"]
 video_queue = [
     "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
     "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4",
